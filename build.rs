@@ -610,6 +610,19 @@ impl Library {
 		eprintln!("=== Probing OpenCV library using cmake");
 		let cmake_pkg = PackageName::cmake();
 		let cmake_bin = env::var_os("OPENCV_CMAKE_BIN").unwrap_or_else(|| "cmake".into());
+		let vcpkg_toolchain_file = env::var_os("VCPKG_ROOT")
+			.and_then(|root| Some(format!("{}/scripts/buildsystems/vcpkg.cmake", root.to_string_lossy())))
+			.unwrap_or_else(|| "".to_string());
+		let get_args = |mode| {
+			vec![
+				"--find-package".into(),
+				"-DCMAKE_TOOLCHAIN_FILE=/home/jayson/src/vcpkg/scripts/buildsystems/vcpkg.cmake".into(),
+				"-DCOMPILER_ID=GNU".into(),
+				"-DLANGUAGE=CXX".into(),
+				format!("-DMODE={}", mode),
+				vcpkg_toolchain_file.clone(),
+			]
+		};
 
 		let include_paths = include_paths
 			.map(|paths| Self::list(paths)
@@ -619,12 +632,7 @@ impl Library {
 			.ok_or_else(|| "Nobody is going to see that")
 			.or_else(|_| Command::new(&cmake_bin)
 				.current_dir(&*OUT_DIR)
-				.args(&[
-					"--find-package",
-					"-DCOMPILER_ID=GNU",
-					"-DLANGUAGE=CXX",
-					"-DMODE=COMPILE",
-				])
+				.args(&get_args("COMPILE"))
 				.arg(format!("-DNAME={}", cmake_pkg))
 				.output()
 				.map_err(Box::<dyn std::error::Error>::from)
@@ -661,12 +669,7 @@ impl Library {
 			if link_paths.is_none() || link_libs.is_none() {
 				Command::new(&cmake_bin)
 					.current_dir(&*OUT_DIR)
-					.args(&[
-						"--find-package",
-						"-DCOMPILER_ID=GNU",
-						"-DLANGUAGE=CXX",
-						"-DMODE=LINK",
-					])
+					.args(&get_args("LINK"))
 					.arg(format!("-DNAME={}", cmake_pkg))
 					.output()
 					.map_err(Box::<dyn std::error::Error>::from)
